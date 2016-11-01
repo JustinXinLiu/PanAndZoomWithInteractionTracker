@@ -78,10 +78,8 @@ namespace PanAndZoomWithInteractionTracker
             scaleAnimation.SetReferenceParameter("t", _tracker);
             _pathContainerVisual.StartAnimation("Scale.XY", scaleAnimation);
 
-            //var centerAnimation = _compositor.CreateExpressionAnimation("-t.Position.XY + v.Size * 0.5f");
-            //centerAnimation.SetReferenceParameter("t", _tracker);
-            //centerAnimation.SetReferenceParameter("v", _pathContainerVisual);
-            //_pathContainerVisual.StartAnimation("CenterPoint.XY", centerAnimation);
+            //var centerAnimation = _compositor.CreateExpressionAnimation("Distance(This.CurrentValue, This.StartingValue) <= 4.0f ? This.StartingValue: This.CurrentValue");
+            //_pathContainerVisual.StartAnimation("CenterPoint", centerAnimation);
         }
 
         private void Root_OnPointerPressed(object sender, PointerRoutedEventArgs e)
