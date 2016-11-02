@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using System.Diagnostics;
+using System.Numerics;
 using Windows.Devices.Input;
 using Windows.UI.Composition;
 using Windows.UI.Composition.Interactions;
@@ -6,10 +7,11 @@ using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Hosting;
 using Windows.UI.Xaml.Input;
+using Windows.UI.Xaml.Shapes;
 
 namespace PanAndZoomWithInteractionTracker
 {
-    public sealed partial class MainPage : Page
+    public sealed partial class MainPage : Page, IInteractionTrackerOwner
     {
         #region Fields
 
@@ -20,7 +22,7 @@ namespace PanAndZoomWithInteractionTracker
         private VisualInteractionSource _interactionSource;
         private InteractionTracker _tracker;
 
-        //private IDictionary<uint, Vector2> _points = new Dictionary<uint, Vector2>();
+        private float _lastScale;
 
         #endregion
 
@@ -31,7 +33,6 @@ namespace PanAndZoomWithInteractionTracker
             Loaded += MainPage_Loaded;
             Root.SizeChanged += Root_SizeChanged;
             Root.PointerPressed += Root_OnPointerPressed;
-            //Root.PointerReleased += Root_PointerReleased;
         }
 
         #region Handlers
@@ -40,8 +41,8 @@ namespace PanAndZoomWithInteractionTracker
         {
             if (_rootVisual == null || _pathContainerVisual == null) return;
 
-            _rootVisual.Size = new Vector2((float)Root.ActualWidth, (float)Root.ActualHeight);
-            _pathContainerVisual.Size = new Vector2(_rootVisual.Size.X, _rootVisual.Size.Y);
+            var rootSize = new Vector2((float)Root.ActualWidth, (float)Root.ActualHeight);
+            _rootVisual.Size = _pathContainerVisual.Size = rootSize;
         }
 
         private void MainPage_Loaded(object sender, RoutedEventArgs e)
@@ -50,7 +51,7 @@ namespace PanAndZoomWithInteractionTracker
             _rootVisual.Size = new Vector2((float)Root.ActualWidth, (float)Root.ActualHeight);
 
             _pathContainerVisual = ElementCompositionPreview.GetElementVisual(PathContainer);
-            _pathContainerVisual.Size = new Vector2(_rootVisual.Size.X, _rootVisual.Size.Y);
+            _pathContainerVisual.Size = _rootVisual.Size;
 
             _compositor = _rootVisual.Compositor;
 
@@ -62,13 +63,13 @@ namespace PanAndZoomWithInteractionTracker
             _interactionSource.ScaleSourceMode = InteractionSourceMode.EnabledWithInertia;
             _interactionSource.ManipulationRedirectionMode = VisualInteractionSourceRedirectionMode.CapableTouchpadOnly;
 
-            _tracker = InteractionTracker.Create(_compositor);
+            _tracker = InteractionTracker.CreateWithOwner(_compositor, this);
             _tracker.InteractionSources.Add(_interactionSource);
-            _tracker.MaxPosition = new Vector3(_rootVisual.Size.X, _rootVisual.Size.Y, 0.0f) * 10.0f;
+            _tracker.MaxPosition = new Vector3(_rootVisual.Size, 0.0f) * 10.0f;
             _tracker.MinPosition = _tracker.MaxPosition * -1.0f;
             _tracker.MinScale = 0.9f;
             _tracker.MaxScale = 12.0f;
-            _tracker.ScaleInertiaDecayRate = 0.95f;
+            _tracker.ScaleInertiaDecayRate = 0.96f;
 
             var positionAnimation = _compositor.CreateExpressionAnimation("-t.Position");
             positionAnimation.SetReferenceParameter("t", _tracker);
@@ -77,41 +78,14 @@ namespace PanAndZoomWithInteractionTracker
             var scaleAnimation = _compositor.CreateExpressionAnimation("Vector2(t.Scale, t.Scale)");
             scaleAnimation.SetReferenceParameter("t", _tracker);
             _pathContainerVisual.StartAnimation("Scale.XY", scaleAnimation);
-
-            //var centerAnimation = _compositor.CreateExpressionAnimation("Distance(This.CurrentValue, This.StartingValue) <= 4.0f ? This.StartingValue: This.CurrentValue");
-            //_pathContainerVisual.StartAnimation("CenterPoint", centerAnimation);
         }
 
         private void Root_OnPointerPressed(object sender, PointerRoutedEventArgs e)
         {
             if (e.Pointer.PointerDeviceType != PointerDeviceType.Touch) return;
 
-            // This won't work since Root_PointerReleased is not getting fired.
-
-            //var id = e.GetCurrentPoint(Root).PointerId;
-            //var position = e.GetCurrentPoint(Root).Position;
-
-            //if (_points.All(p => p.Key != id))
-            //{
-            //    _points[id] = new Vector2((float)position.X, (float)position.Y);
-            //}
-
-            //if (_points.Any())
-            //{
-            //    var center = new Vector3(_points.Sum(p => p.Value.X) / _points.Count, _points.Sum(p => p.Value.Y) / _points.Count, 0.0f);
-            //    _pathContainerVisual.CenterPoint = center;
-            //}
-
             _interactionSource.TryRedirectForManipulation(e.GetCurrentPoint(Root));
         }
-
-        //private void Root_PointerReleased(object sender, PointerRoutedEventArgs e)
-        //{
-        //    // Because all manipulations are redirected to the tracker, this won't be fired.
-
-        //    //var id = e.GetCurrentPoint(Root).PointerId;
-        //    //_points.Remove(id);
-        //}
 
         //private async void MainPage_Loaded(object sender, RoutedEventArgs e)
         //{
@@ -142,6 +116,40 @@ namespace PanAndZoomWithInteractionTracker
         //    //Logo.InvalidateArrange();
         //    //Logo.UpdateLayout();
         //}
+
+        #endregion
+
+        #region IInteractionTrackerOwner Implementation
+
+        public void InteractingStateEntered(InteractionTracker sender, InteractionTrackerInteractingStateEnteredArgs args)
+        {
+            Debug.WriteLine("Fingers down");
+        }
+
+        public void ValuesChanged(InteractionTracker sender, InteractionTrackerValuesChangedArgs args)
+        {
+            //Debug.WriteLine($"Scale: {args.Scale}");
+            //Debug.WriteLine($"Position: {args.Position}");
+
+            _lastScale = args.Scale;
+        }
+
+        public void InertiaStateEntered(InteractionTracker sender, InteractionTrackerInertiaStateEnteredArgs args)
+        {
+        }
+
+        public void IdleStateEntered(InteractionTracker sender, InteractionTrackerIdleStateEnteredArgs args)
+        {
+            Debug.WriteLine("Fingers up");
+        }
+
+        public void CustomAnimationStateEntered(InteractionTracker sender, InteractionTrackerCustomAnimationStateEnteredArgs args)
+        {
+        }
+
+        public void RequestIgnored(InteractionTracker sender, InteractionTrackerRequestIgnoredArgs args)
+        {
+        }
 
         #endregion
     }
