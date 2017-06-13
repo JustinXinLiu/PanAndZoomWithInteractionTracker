@@ -73,7 +73,7 @@ namespace PanAndZoomWithInteractionTracker
             _tracker = InteractionTracker.CreateWithOwner(_compositor, this);
             _tracker.InteractionSources.Add(_interactionSource);
             _tracker.MaxPosition = new Vector3(_rootVisual.Size, 0.0f) * 3.0f;
-            _tracker.MinPosition = _tracker.MaxPosition * 1.0f;
+            _tracker.MinPosition = _tracker.MaxPosition * -1.0f;
             _tracker.MinScale = 0.9f;
             _tracker.MaxScale = 12.0f;
             _tracker.ScaleInertiaDecayRate = 0.96f;
@@ -135,10 +135,10 @@ namespace PanAndZoomWithInteractionTracker
 
         public void ValuesChanged(InteractionTracker sender, InteractionTrackerValuesChangedArgs args)
         {
-            //Debug.WriteLine($"Scale: {args.Scale}");
-            //Debug.WriteLine($"Position: {args.Position}");
+			Debug.WriteLine($"Scale: {args.Scale}");
+			Debug.WriteLine($"Position: {args.Position}");
 
-            _newTrackerScale = args.Scale;
+			_newTrackerScale = args.Scale;
         }
 
         public void InertiaStateEntered(InteractionTracker sender, InteractionTrackerInertiaStateEnteredArgs args)
